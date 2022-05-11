@@ -50,6 +50,12 @@ body {
     padding: 2.5em 2em;
     margin-top: 0.5em;
 
+    .flaskbb-logo {
+        width: 110px;
+        float: left;
+        margin-right: 25px;
+    }
+
     .flaskbb-meta {
         .flaskbb-title {
             color: $fbb-header-title-color;
