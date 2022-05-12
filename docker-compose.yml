@@ -1,0 +1,56 @@
+services:
+  flaskbb:
+    image: flaskbb:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+    - network
+    ports:
+    - "5000:5000"
+
+  celery:
+    image: flaskbb:latest
+    command: ["flaskbb", "--config", "flaskbb.cfg", "celery", "worker"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+    - network
+
+  postgres:  # https://hub.docker.com/_/postgres
+    image: postgres:latest
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD", "psql", "--user", "postgres", "--list"]
+      interval: 15s
+      timeout: 5s
+    networks:
+    - network
+    volumes:
+    - type: volume
+      source: postgres
+      target: /var/lib/postgresql/data
+
+  redis:  # https://hub.docker.com/_/redis
+    image: redis:latest
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+    networks:
+    - network
+    volumes:
+    - type: volume
+      source: redis
+      target: /data
+
+networks:
+  network:
+
+volumes:
+  postgres:
+  redis:
