@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # This script initializes flaskbb for a new database.
-# Whether or not initialization was already performed is determined by looking for the flaskbb role.
+# Initialization is performed if the flaskbb role does not exist.
 
 if ! psql --host postgres --username postgres --command='\du' --no-align --tuples-only | grep flaskbb > /dev/null
 then
