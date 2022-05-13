@@ -53,7 +53,7 @@ jobs:
       run: aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${AWS_IMAGE_REGISTRY}"
 
     - name: Display full CloudFormation template
-      run: docker --context aws-ecs compose convert
+      run: docker --context aws-ecs compose --file docker-compose-ecs.yml convert
 
     - name: Which operation?
       id: which-operation
@@ -75,7 +75,7 @@ jobs:
         fi
 
     - name: Deploy
-      run: docker --context aws-ecs compose --project-name flaskbb ${{ github.event.inputs.deploy }}
+      run: docker --context aws-ecs compose --file docker-compose-ecs.yml --project-name flaskbb ${{ github.event.inputs.deploy }}
 
     - name: Wait until complete
       run: aws cloudformation wait ${{ steps.which-operation.outputs.answer }} --stack flaskbb
@@ -84,7 +84,7 @@ jobs:
       run: |
         if [[ "${{ github.event.inputs.deploy }}" == "up" ]]
         then
-          docker --context aws-ecs compose --project-name flaskbb ps
+          docker --context aws-ecs compose --file docker-compose-ecs.yml --project-name flaskbb ps
         else
           echo "Nothing to display because it was a down operation."
         fi
