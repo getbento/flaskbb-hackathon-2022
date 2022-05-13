@@ -1,0 +1,90 @@
+# This workflow will create, update, or delete the AWS ECS environment.
+
+name: AWS ECS Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Choose "up" to create/update or "down" to delete.'
+        required: true
+        default: up
+        type: choice
+        options:
+        - up
+        - down
+      confirm:
+        description: 'Type "run" to continue.'
+        required: true
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.GH_ACTIONS_RUNNER_AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.GH_ACTIONS_RUNNER_AWS_SECRET_ACCESS_KEY }}
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_IMAGE_REGISTRY: 376391014730.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: User acknowledged warning?
+      run: |
+        if [[ "${{ github.event.inputs.confirm }}" == "run" ]]
+        then
+          echo 'OK'
+        else
+          echo 'User must acknowledge warning by typing "run" at the prompt.'
+          exit 1
+        fi
+
+    - uses: actions/checkout@v2
+
+    # https://docs.docker.com/cloud/ecs-integration/#install-the-docker-compose-cli-on-linux
+    - name: Install docker compose with ecs integration
+      run: curl -L https://raw.githubusercontent.com/docker/compose-cli/main/scripts/install/install_linux.sh | sh
+
+    # context creation requires credentials; read it from the environment
+    - name: Create AWS ECS docker context
+      run: echo 'env' | docker context create ecs aws-ecs
+
+    - name: Login to AWS ECR
+      run: aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${AWS_IMAGE_REGISTRY}"
+
+    - name: Display full CloudFormation template
+      run: docker --context aws-ecs compose --file docker-compose-ecs.yml convert
+
+    - name: Which operation?
+      id: which-operation
+      run: |
+        if [[ "${{ github.event.inputs.deploy }}" == "up" ]]
+        then
+          echo "Up operation."
+          if aws cloudformation describe-stacks --stack flaskbb
+          then
+            echo "Stack currently exists."
+            echo "::set-output name=answer::stack-update-complete"
+          else
+            echo "Stack does not exist."
+            echo "::set-output name=answer::stack-create-complete"
+          fi
+        else
+          echo "Down operation."
+          echo "::set-output name=answer::stack-delete-complete"
+        fi
+
+    - name: Deploy
+      run: docker --context aws-ecs compose --file docker-compose-ecs.yml --project-name flaskbb ${{ github.event.inputs.deploy }}
+
+    - name: Wait until complete
+      run: aws cloudformation wait ${{ steps.which-operation.outputs.answer }} --stack flaskbb
+
+    - name: Display load balancer address
+      run: |
+        if [[ "${{ github.event.inputs.deploy }}" == "up" ]]
+        then
+          docker --context aws-ecs compose --file docker-compose-ecs.yml --project-name flaskbb ps
+        else
+          echo "Nothing to display because it was a down operation."
+        fi

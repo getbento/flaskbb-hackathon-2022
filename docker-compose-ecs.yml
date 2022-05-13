@@ -1,0 +1,88 @@
+services:
+  flaskbb:
+    image: 376391014730.dkr.ecr.us-east-1.amazonaws.com/flaskbb:latest
+    environment:
+      FLASKBB_SERVER_NAME: flask-LoadB-QQNUU58NMKVJ-945831bb13674d95.elb.us-east-1.amazonaws.com:5000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      options:
+        awslogs-group: /flaskbb
+    networks:
+    - network
+    ports:
+    - "5000:5000"
+
+  celery:
+    image: 376391014730.dkr.ecr.us-east-1.amazonaws.com/flaskbb:latest
+    environment:
+      FLASKBB_SERVER_NAME: flask-LoadB-QQNUU58NMKVJ-945831bb13674d95.elb.us-east-1.amazonaws.com:5000
+    command: ["flaskbb", "--config", "flaskbb.cfg", "celery", "worker"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging:
+      options:
+        awslogs-group: /flaskbb
+    networks:
+    - network
+
+  postgres:  # https://hub.docker.com/_/postgres
+    image: postgres:latest
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD", "psql", "--user", "postgres", "--list"]
+      interval: 15s
+      timeout: 5s
+    logging:
+      options:
+        awslogs-group: /flaskbb
+    networks:
+    - network
+    # volumes:
+    # - type: volume
+    #   source: postgres
+    #   target: /var/lib/postgresql/data
+
+  redis:  # https://hub.docker.com/_/redis
+    image: redis:latest
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+    logging:
+      options:
+        awslogs-group: /flaskbb
+    networks:
+    - network
+    # volumes:
+    # - type: volume
+    #   source: redis
+    #   target: /data
+
+networks:
+  network:
+
+# volumes:
+#   postgres:
+#   redis:
+
+x-aws-vpc: vpc-02a5d526292c101ac
+
+# # we need to modify the resulting cloudformation template with the following overlay
+# x-aws-cloudformation:
+#   Resources:
+
+#     # workaround: https://github.com/docker/compose-cli/issues/1739#issuecomment-906073631
+#     PostgresNFSMountTargetOnSubnet016ed5a4a76b51907: &efs_postgres
+#       Properties:
+#         FileSystemId: fs-02c83deea56ecc235
+#         SecurityGroups:
+#         SubnetId:
+#       Type: AWS::EFS::AccessPoint
+#     PostgresNFSMountTargetOnSubnet079b1c3519a80769e: *efs_postgres
+#     PostgresNFSMountTargetOnSubnet03277e3be33b34aa5: *efs_postgres
