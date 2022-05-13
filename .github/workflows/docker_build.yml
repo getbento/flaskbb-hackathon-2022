@@ -1,0 +1,38 @@
+# This workflow builds the Dockerfile located at the root of this repo.
+# The image is pushed to AWS ECR.
+
+name: Docker Build
+
+on:
+  push:
+    branches:
+    - master
+  workflow_dispatch:
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.GH_ACTIONS_RUNNER_AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.GH_ACTIONS_RUNNER_AWS_SECRET_ACCESS_KEY }}
+  AWS_BASE64_SSH_KEY: ${{ secrets.GH_ACTIONS_RUNNER_BASE64_ENC_PRIVATE_KEY }}
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_IMAGE_REGISTRY: 376391014730.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Docker build runner
+      run: |
+        docker build \
+          --tag "${AWS_IMAGE_REGISTRY}/flaskbb:commit-$(git rev-parse --short=7 HEAD)" \
+          --tag "${AWS_IMAGE_REGISTRY}/flaskbb:latest" \
+          .
+
+    - name: Login to AWS ECR
+      run: aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${AWS_IMAGE_REGISTRY}"
+
+    - name: Push to AWS ECR
+      run: docker push --all-tags "${AWS_IMAGE_REGISTRY}/flaskbb"
