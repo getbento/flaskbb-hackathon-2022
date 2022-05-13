@@ -10,7 +10,7 @@ then
     psql --host postgres --username postgres --command='CREATE ROLE flaskbb WITH CREATEDB LOGIN' --echo-all
 
     echo -e "\033[0;34mRun flaskbb install...\033[0m"
-    flaskbb install --username admin --password admin --email flaskbb@getbento.com
+    flaskbb install --username demo --password demo --email flaskbb@getbento.com
 
     echo -e "\033[0;34mInstall flaskbb plugins...\033[0m"
     flaskbb plugins install portal
